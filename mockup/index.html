@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rain, Roads and the Commute — dashboard mockup</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%234da3ff'/></svg>">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div id="stage">
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <div class="brandtext">
+        <span class="bt1">Rain, Roads and the Commute</span>
+        <span class="bt2">Hong Kong · congestion &amp; rain</span>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-page="live">Live</button>
+      <button class="tab" data-page="impact">Impact</button>
+      <button class="tab" data-page="replay">Replay</button>
+      <button class="tab" data-page="loop">Loop</button>
+      <button class="tab" data-page="trust">Trust</button>
+    </nav>
+
+    <div class="status">
+      <span class="pill mock">MOCKUP</span>
+      <span class="pill amber">AMBER RAIN</span>
+      <span class="live-dot"></span>
+      <span class="clock" id="clock">08:23</span>
+      <span class="date">Fri 13 Nov</span>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ───────────────────────── LIVE ───────────────────────── -->
+    <section class="page active" id="p-live">
+      <div class="grid">
+        <article class="panel span5">
+          <div class="ph"><span>Congestion now</span><span class="phr"><b id="liveN">429</b> detectors · CI 0–1</span></div>
+          <div class="pb"><div class="map" id="mapLive"></div></div>
+        </article>
+
+        <article class="panel span7">
+          <div class="ph"><span>Most congested corridors</span><span class="phr">08:23 · top 8</span></div>
+          <div class="pb"><div class="rank" id="rank"></div></div>
+        </article>
+
+        <article class="panel span4">
+          <div class="ph"><span>Rainfall by district</span><span class="phr">mm / last hour</span></div>
+          <div class="pb"><div class="rainstrip" id="rainstrip"></div></div>
+        </article>
+
+        <article class="panel span5">
+          <div class="ph"><span>Camera wall</span><span class="phr">TD · 320×240 · ~2 min</span></div>
+          <div class="pb"><div class="camwall" id="camwall"></div></div>
+        </article>
+
+        <article class="panel span3 alertcard">
+          <div class="ph"><span>Alert</span><span class="phr">auto</span></div>
+          <div class="pb">
+            <div class="alert-top">
+              <span class="sev">AMBER</span>
+              <span class="alert-time">08:18</span>
+            </div>
+            <div class="alert-title">Kwun Tong Road<br>eastbound</div>
+            <div class="alert-metric"><b>0.71</b><span>CI · 21 km/h</span></div>
+            <div class="alert-rule">CI &gt; P90 (0.48) and rain &gt; 0</div>
+            <div class="alert-advice">
+              <div><span class="k">Commuter</span> leave now, or wait 20 min → <b>0.54</b></div>
+              <div><span class="k">Operator</span> relief bus, 3.2 km queue</div>
+            </div>
+            <div class="spark"><canvas id="outlook"></canvas></div>
+            <div class="sparkcap">30-min outlook · shaded = forecast</div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── IMPACT ───────────────────────── -->
+    <section class="page" id="p-impact">
+      <div class="toolbar">
+        <span class="tb-label">Rain impact</span>
+        <div class="seg" id="impactSeg">
+          <button class="on" data-d="all">All districts</button>
+          <button data-d="peak">Peak only</button>
+          <button data-d="off">Off-peak</button>
+        </div>
+        <span class="tb-note">speed ratio = speed ÷ free-flow speed (85th pct)</span>
+      </div>
+      <div class="grid">
+        <article class="panel span6">
+          <div class="ph"><span>Speed ratio vs rainfall</span><span class="phr">n = 1,284 · fitted OLS</span></div>
+          <div class="pb"><div class="chart"><canvas id="cScatter"></canvas></div></div>
+        </article>
+        <article class="panel span6">
+          <div class="ph"><span>Sensitivity by district</span><span class="phr">Δ speed ratio per mm/h · 95% CI</span></div>
+          <div class="pb"><div class="chart"><canvas id="cSens"></canvas></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Onset lag</span><span class="phr">effect vs minutes after rain</span></div>
+          <div class="pb"><div class="chart"><canvas id="cLag"></canvas></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Peak vs off-peak</span><span class="phr">same rain, different hour</span></div>
+          <div class="pb"><div class="chart"><canvas id="cPeak"></canvas></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Model card</span><span class="phr">reproducible</span></div>
+          <div class="pb card">
+            <div class="bigstat"><b>−0.017</b><span>speed ratio per mm/h</span></div>
+            <div class="statgrid">
+              <div><b>0.41</b><span>R²</span></div>
+              <div><b>&lt;0.001</b><span>p</span></div>
+              <div><b>1,284</b><span>n</span></div>
+              <div><b>429</b><span>detectors</span></div>
+            </div>
+            <p class="note">OLS with cluster-robust SE by detector, controlling for hour and weekday. That is roughly <b>1.7% of free-flow speed lost per mm/h</b> — about 12 km/h in a 70 km/h corridor at 20 mm/h.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── REPLAY ───────────────────────── -->
+    <section class="page" id="p-replay">
+      <div class="toolbar">
+        <button class="playbtn" id="playBtn">▶ Play</button>
+        <input type="range" id="scrub" min="0" max="59" value="41">
+        <span class="tb-time" id="rTime">08:25</span>
+        <div class="seg" id="speedSeg">
+          <button data-s="1">1×</button>
+          <button class="on" data-s="10">10×</button>
+          <button data-s="60">60×</button>
+        </div>
+        <span class="tb-note">13 Nov 2026 · synthetic 5-min steps from the 08:23 snapshot</span>
+      </div>
+      <div class="grid">
+        <article class="panel span8">
+          <div class="ph"><span>Congestion replay</span><span class="phr" id="rClock">08:25</span></div>
+          <div class="pb"><div class="map" id="mapReplay"></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Events</span><span class="phr">detected</span></div>
+          <div class="pb"><div class="events" id="events"></div></div>
+        </article>
+        <article class="panel span8">
+          <div class="ph"><span>Network CI &amp; rainfall</span><span class="phr">5-min bins</span></div>
+          <div class="pb"><div class="chart"><canvas id="cTimeline"></canvas></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Camera strip</span><span class="phr">same corridor</span></div>
+          <div class="pb"><div class="camstrip" id="camstrip"></div></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── LOOP ───────────────────────── -->
+    <section class="page" id="p-loop">
+      <div class="grid">
+        <article class="panel span5">
+          <div class="ph"><span>The loop, this morning</span><span class="phr">07:00–10:00</span></div>
+          <div class="pb"><div class="funnel" id="funnel"></div></div>
+        </article>
+        <article class="panel span7">
+          <div class="ph"><span>Forecast skill</span><span class="phr">30-min CI · MAE vs persistence</span></div>
+          <div class="pb">
+            <div class="skillwrap">
+              <div class="skillkpi">
+                <div class="bigstat"><b>−23%</b><span>MAE vs persistence</span></div>
+                <div class="skill2"><span>model <b>0.091</b></span><span>persistence <b>0.118</b></span></div>
+                <p class="note">Alerts fire on the forecast, so its error is the loop's error. Daily refit.</p>
+              </div>
+              <div class="chart"><canvas id="cSkill"></canvas></div>
+            </div>
+          </div>
+        </article>
+        <article class="panel span12">
+          <div class="ph"><span>Decision log</span><span class="phr">19 logged · 17 outcomes measured · 2 pending</span></div>
+          <div class="pb"><div class="table" id="decisionTable"></div></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── TRUST ───────────────────────── -->
+    <section class="page" id="p-trust">
+      <div class="grid">
+        <article class="panel span5">
+          <div class="ph"><span>Feed freshness</span><span class="phr">now − last timestamp</span></div>
+          <div class="pb"><div class="feeds" id="feeds"></div></div>
+        </article>
+        <article class="panel span7">
+          <div class="ph"><span>Detector validity</span><span class="phr">7 days × 24 h · share valid</span></div>
+          <div class="pb"><div class="heat" id="heat"></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Camera availability</span><span class="phr">"No Service" frames</span></div>
+          <div class="pb">
+            <div class="hbars" id="noservice"></div>
+          </div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Outlook calibration</span><span class="phr">MAE by horizon</span></div>
+          <div class="pb"><div class="chart"><canvas id="cCal"></canvas></div></div>
+        </article>
+        <article class="panel span4">
+          <div class="ph"><span>Provenance</span><span class="phr">data.gov.hk</span></div>
+          <div class="pb card">
+            <ul class="prov">
+              <li><b>TD</b> traffic detectors &amp; camera snapshots</li>
+              <li><b>HKO</b> hourly &amp; daily rainfall, district weather</li>
+              <li><b>HAD</b> district boundaries</li>
+              <li><b>TD archive</b> historical detector snapshots (1 Oct →)</li>
+            </ul>
+            <p class="note">Two feeds are broken in this mockup on purpose: the daily rainfall file lags to 30 Sep, and 4.2% of camera frames return "No Service". A dashboard that hides this is lying.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<script src="assets/chart.umd.min.js"></script>
+<script src="data/data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
