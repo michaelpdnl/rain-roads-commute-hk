@@ -1,0 +1,17 @@
+.git
+node_modules
+.env
+mockup
+backups
+submission
+artifacts
+openspec
+tests
+*.zip
+history
+history-latest
+report
+output
+.playwright-cli
+.superpowers
+*.md
