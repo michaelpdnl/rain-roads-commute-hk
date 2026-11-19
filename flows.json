@@ -391,6 +391,55 @@
     ]
   },
   {
+    "id": "timer-maintenance",
+    "type": "inject",
+    "z": "collect",
+    "name": "Evaluate pending decisions · every 2 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "120",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 60,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 680,
+    "wires": [
+      [
+        "maintenance"
+      ]
+    ]
+  },
+  {
+    "id": "maintenance",
+    "type": "function",
+    "z": "collect",
+    "name": "Evaluate outcomes even when dashboard is closed",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.maintenance());node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 680,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
     "id": "catch-collect",
     "type": "catch",
     "z": "collect",

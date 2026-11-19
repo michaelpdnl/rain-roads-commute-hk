@@ -24,6 +24,8 @@ for(const [kind,seconds,delay,url,y] of [
 }
 trigger('timer-camera','Capture six cameras · every 2 min',120,20,480,'camera');
 fn('camera','collect','Download / persist actual JPEG frames',asyncFn('city.captureCameras()'),480,480,['log']);
+trigger('timer-maintenance','Evaluate pending decisions · every 2 min',120,60,680,'maintenance');
+fn('maintenance','collect','Evaluate outcomes even when dashboard is closed',asyncFn('city.maintenance()'),560,680,['log']);
 add({id:'catch-collect',type:'catch',z:'collect',name:'Record source failure',scope:null,uncaught:false,x:220,y:580,wires:[['error-state']]});
 fn('error-state','collect','Mark feed unavailable; keep stored history',`const city=global.get('city');if(msg.sourceKind)city.fail(msg.sourceKind,msg.error?.message||'Request failed').catch(()=>{});msg.payload={source:msg.sourceKind||msg.error?.source?.name,error:msg.error?.message};return msg;`,640,580,['log']);
 add({id:'log',type:'debug',z:'collect',name:'Acquisition status',active:true,tosidebar:true,console:false,tostatus:false,complete:'payload',targetType:'msg',x:1220,y:480,wires:[]});

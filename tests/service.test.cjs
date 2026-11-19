@@ -19,6 +19,19 @@ test('Historical RSS imports are deduplicated, keep unknown rain unknown, and do
   assert.equal((await s.db.collection('feed_health').findOne({_id:'weather'})).observedAt,'2026-11-20T00:00:00.000Z');
  }finally{if(s.db)await s.db.dropDatabase();await s.close();}
 });
+
+test('Research retains older wet history beyond latest 24000 records and real alert episodes deduplicate',{skip:process.env.INTEGRATION!=='1'},async()=>{
+ const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex');const s=new CityService({dbName:name,dataDir:'/tmp/'+name});
+ s.metadataRefresh=async()=>{s.metadata=[{id:'TEST1',d:'Sha Tin',road:'Fixture',lat:22.4,lon:114.2}];s.cameras=[];};
+ try{await s.init();const base={id:'TEST1',d:'Sha Tin',road:'Fixture',lat:22.4,lon:114.2,speed:60,volume:3,occupancy:15,valid:true,hasVehicles:true};
+  const recent=Array.from({length:24001},(_,i)=>({...base,_id:'recent'+i,ts:new Date(Date.now()-i*30000).toISOString()}));
+  await s.db.collection('traffic').insertMany([...recent,{...base,_id:'old-wet',ts:'2026-10-03T05:00:00.000Z',speed:20}]);
+  await s.db.collection('district_rain').insertOne({_id:'old-rain',d:'Sha Tin',ts:'2026-10-03T04:45:00.000Z',mm:7});
+  const state=await s.snapshot();assert.ok(state.research,'Research panel data must be implemented');assert.ok(state.research.impact.wet>0,'Earlier rain must not disappear behind the latest 24000 records');
+  assert.equal(state.research.heatmap.length,7);assert.equal(state.research.forecast.models.length,3);assert.equal(state.loop.decisions,0);
+  assert.equal(typeof s.recordAlerts,'function');const low=[{...base,speed:10,ts:new Date().toISOString()}];await s.recordAlerts(low);await s.recordAlerts(low);assert.equal(await s.db.collection('alerts').countDocuments(),1);
+ }finally{if(s.db)await s.db.dropDatabase();await s.close();}
+});
 test('Real MongoDB: ingestion deduplicates, rainfall joins, failure preserves data, decisions evaluate', {skip:process.env.INTEGRATION!=='1'},async()=>{
  const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex');
  const s=new CityService({dbName:name,dataDir:'/tmp/'+name});
