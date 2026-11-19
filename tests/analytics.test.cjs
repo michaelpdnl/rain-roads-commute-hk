@@ -35,6 +35,12 @@ test('Changing held-out future values does not change trained model coefficients
  assert.deepEqual(one.models[0].coefficients,two.models[0].coefficients);assert.ok(one.models[0].available);
 });
 
+test('Forecast frame is dated when its latest measurement exists and rain waits for publication',()=>{
+ const rows=[{id:'A',d:'Sha Tin',ts:'2026-10-03T05:04:30.000Z',ci:.2,speed:40,valid:true}],rain=[{d:'Sha Tin',ts:'2026-10-03T04:45:00.000Z',publishedAt:'2026-10-03T05:10:00.000Z',mm:7}];
+ assert.equal(a.networkFrames(rows)[0].ts,rows[0].ts);assert.equal(typeof a.joinAvailableRain,'function');assert.equal(a.joinAvailableRain(rows,rain)[0].rain,null);
+ assert.equal(a.joinAvailableRain([{...rows[0],ts:'2026-10-03T05:12:00.000Z'}],rain)[0].rain,7);
+});
+
 test('Quality heatmap preserves unobserved cells and loop counts actual records only',()=>{
  const rows=[{ts:'2026-11-19T01:00:00Z',valid:true},{ts:'2026-11-19T01:01:00Z',valid:false}];
  const h=a.heatmap(rows,'2026-11-20T00:00:00Z');assert.equal(h.length,7);const day=h.find(d=>d.date==='2026-11-19');assert.equal(day.cells[9].share,0.5);assert.equal(day.cells[10].share,null);

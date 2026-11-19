@@ -29,7 +29,7 @@ function renderLive(){
  $('#rainstrip').innerHTML=data.rain.districts.map(r=>`<div class="rcell"><span class="rn">${esc(r.d)}</span><span class="rv">${num(r.mm)}<span>mm</span></span><small>as of ${time(r.ts)}</small></div>`).join('');
  $('#camwall').innerHTML=data.cameras.map(c=>cameraHtml(c)).join('');imageErrors($('#camwall'));
  const alert=data.alerts[0],m=data.research.forecast.models[0];$('#awareness').innerHTML=alert?`<span class="sev">OBSERVED ALERT</span><div class="alert-title">${esc(alert.road)}</div><div class="alert-metric"><b>${num(alert.ci,2)}</b><span>CI · ${num(alert.speed)} km/h</span></div><p class="note">${esc(alert.rule)}. Inspect the camera before considering delay or rail.</p>`:'<span class="sev neutral">NO CURRENT THRESHOLD ALERT</span><p class="note">Continue observing road measurements and camera conditions.</p>';
- $('#awareness').innerHTML+=`<p class="note">30-min network outlook: <b>${m.available?num(m.prediction,2):'not yet evaluated'}</b></p>`;
+ $('#awareness').innerHTML+=`<p class="note">Network outlook: <b>${m.available?num(m.prediction,2):'not yet evaluated'}</b>${m.available?`<br>For ${time(m.predictedAt)} HKT${Date.parse(m.predictedAt)<Date.now()?' · stale target':''}`:''}</p>`;
  const f=data.research.forecast,last=f.recent.at(-1),future=last?[{x:Date.parse(last.ts),y:last.ci},...f.outlook.map(r=>({x:Date.parse(r.ts),y:r.ci}))]:[];
  chart('outlook','line',[{label:'Observed',data:gaps(f.recent,'ci',15),borderColor:'#5aa6e5',pointRadius:0,borderWidth:1},{label:'Forecast',data:future,borderColor:'#6fd5bd',borderDash:[4,3],pointRadius:1,borderWidth:1}],undefined,{x:{...timeAxis(),title:{display:false},ticks:{display:false}},y:{...axis(),min:0,max:1,ticks:{maxTicksLimit:3}}});
 }
