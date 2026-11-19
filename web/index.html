@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rain, Roads and the Commute · Hong Kong</title><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="assets/app.css"><link rel="stylesheet" href="assets/live.css"></head>
+<body><div id="stage"><div id="app">
+<header class="topbar"><div class="brand"><span class="mark"></span><div class="brandtext"><span class="bt1">Rain, Roads and the Commute</span><span class="bt2">Hong Kong · measured roads, rain &amp; snapshots</span></div></div>
+<nav class="tabs" aria-label="Dashboard pages"><button class="tab active" data-page="live">Live</button><button class="tab" data-page="impact">Analysis</button><button class="tab" data-page="replay">Replay</button><button class="tab" data-page="loop">Decisions</button><button class="tab" data-page="trust">Data quality</button></nav>
+<div class="status"><span class="pill" id="connection">CONNECTING</span><span class="clock" id="clock">—</span><span class="date">HKT</span></div></header>
+<div class="globalbar"><label for="district">Area</label><select id="district"><option value="">All six districts</option><option>Kwun Tong</option><option>Yau Tsim Mong</option><option>Sha Tin</option><option>Yuen Long</option><option>Tsuen Wan</option><option>Sham Shui Po</option></select><span id="scope">Waiting for stored observations…</span><button class="playbtn" id="refresh">Refresh</button></div><div id="notice" role="status"></div>
+<main class="main">
+<section class="page active" id="p-live"><div class="grid">
+<article class="panel span5"><div class="ph"><span>Measured road speed</span><span class="phr" id="liveN">—</span></div><div class="pb"><div class="map" id="mapLive"></div></div></article>
+<article class="panel span7"><div class="ph"><span>Slowest observed roads</span><span class="phr">valid periods with vehicles · km/h</span></div><div class="pb"><div class="rank" id="rank"></div></div></article>
+<article class="panel span4"><div class="ph"><span>District rainfall</span><span class="phr">district maximum · last hour</span></div><div class="pb"><div class="rainstrip" id="rainstrip"></div></div></article>
+<article class="panel span5"><div class="ph"><span>Live camera wall</span><span class="phr">TD · captured every 2 min</span></div><div class="pb"><div class="camwall" id="camwall"></div></div></article>
+<article class="panel span3"><div class="ph"><span>Situational awareness</span><span class="phr">observed</span></div><div class="pb card" id="awareness"></div></article>
+</div></section>
+<section class="page" id="p-impact"><div class="toolbar"><span class="tb-label">Compare stored observations</span><div class="seg" id="impactSeg"><button class="on" data-d="all">All hours</button><button data-d="peak">Weekday peak</button><button data-d="off">Other hours</button></div><span class="tb-note">HKT peaks: 07–10 / 17–20 · associations, not causes</span></div><div class="grid">
+<article class="panel span6"><div class="ph"><span>Rainfall × road speed</span><span class="phr" id="pairedN">—</span></div><div class="pb"><div class="chart"><canvas id="cScatter"></canvas></div></div></article>
+<article class="panel span6"><div class="ph"><span>Speed by district</span><span class="phr">mean km/h · observed periods</span></div><div class="pb"><div class="chart"><canvas id="cSens"></canvas></div></div></article>
+<article class="panel span4"><div class="ph"><span>Occupancy × road speed</span><span class="phr" id="corr">—</span></div><div class="pb"><div class="chart"><canvas id="cLag"></canvas></div></div></article>
+<article class="panel span4"><div class="ph"><span>Peak / other hours</span><span class="phr">mean km/h · different road mixes</span></div><div class="pb"><div class="chart"><canvas id="cPeak"></canvas></div></div></article>
+<article class="panel span4"><div class="ph"><span>Findings &amp; limits</span><span class="phr">from stored data</span></div><div class="pb card scroll" id="findings"></div></article>
+</div></section>
+<section class="page" id="p-replay"><div class="toolbar"><button class="playbtn" id="playBtn">Play</button><label for="scrub">Stored frame</label><input aria-label="Stored frame" type="range" id="scrub" min="0" max="0" value="0"><span class="tb-time" id="rTime">—</span><span class="tb-note">Actual timestamps only · gaps are preserved</span></div><div class="grid">
+<article class="panel span8"><div class="ph"><span>Historical speed map</span><span class="phr" id="rClock">—</span></div><div class="pb"><div class="map" id="mapReplay"></div></div></article>
+<article class="panel span4"><div class="ph"><span>Frame details</span><span class="phr">no interpolation</span></div><div class="pb card" id="events"></div></article>
+<article class="panel span8"><div class="ph"><span>Stored speed timeline</span><span class="phr">point spacing follows elapsed time</span></div><div class="pb"><div class="chart"><canvas id="cTimeline"></canvas></div></div></article>
+<article class="panel span4"><div class="ph"><span>Corresponding camera capture</span><span class="phr">≤3 min before selected time</span></div><div class="pb"><div class="camstrip" id="camstrip"></div></div></article>
+</div></section>
+<section class="page" id="p-loop"><div class="grid">
+<article class="panel span5"><div class="ph"><span>Observe → understand → decide → observe</span><span class="phr">smart-city loop</span></div><div class="pb card" id="funnel"></div></article>
+<article class="panel span7"><div class="ph"><span>Record a decision</span><span class="phr">local research log</span></div><div class="pb card"><p class="note">Use the observed conditions and camera view to consider a commute option. This log records your choice; it sends no instruction to a transport operator.</p><form id="decisionForm"><label for="road">Observed road</label><select id="road" required></select><label for="action">Considered option</label><select id="action"><option value="observe">Continue observing</option><option value="delay20">Consider leaving 20 minutes later</option><option value="switch-rail">Consider rail instead</option></select><button class="primary" type="submit">Save decision</button></form><p class="note" id="decisionStatus" role="status">At +30 minutes, the next available road observation within 10 minutes is compared with the initial speed. A change does not prove the decision caused it.</p></div></article>
+<article class="panel span12"><div class="ph"><span>Decision log</span><span class="phr" id="decisionN">—</span></div><div class="pb scroll"><table class="logtable"><thead><tr><th>HKT time</th><th>Road / district</th><th>Considered option</th><th>Initial speed</th><th>+30 min observation</th></tr></thead><tbody id="decisionTable"></tbody></table></div></article>
+</div></section>
+<section class="page" id="p-trust"><div class="grid">
+<article class="panel span5"><div class="ph"><span>Feed freshness</span><span class="phr">observation time &amp; request status</span></div><div class="pb scroll"><div class="feeds" id="feeds"></div></div></article>
+<article class="panel span7"><div class="ph"><span>Valid detector coverage</span><span class="phr">stored frames · valid share</span></div><div class="pb"><div class="chart"><canvas id="cValidity"></canvas></div></div></article>
+<article class="panel span4"><div class="ph"><span>Camera retrieval</span><span class="phr">JPEG HTTP success only</span></div><div class="pb card scroll" id="noservice"></div></article>
+<article class="panel span4"><div class="ph"><span>Storage &amp; interpretation</span><span class="phr">MongoDB</span></div><div class="pb card scroll" id="storage"></div></article>
+<article class="panel span4"><div class="ph"><span>Data provenance</span><span class="phr">DATA.GOV.HK catalog</span></div><div class="pb card scroll" id="provenance"></div></article>
+</div></section>
+</main><footer>COMP7503 · Real observations · HKT (UTC+8) · <a href="/red/" target="_blank" rel="noopener">Node-RED flows</a> · <span id="lastRefresh">Waiting</span></footer>
+</div></div><script src="assets/chart.umd.min.js"></script><script src="geometry.js"></script><script src="assets/app.js"></script></body></html>

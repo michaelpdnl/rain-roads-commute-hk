@@ -1,0 +1,44 @@
+name: rain-roads
+services:
+  mongodb:
+    image: mongo@sha256:bdc216e9d5a6ec2cfdac789b5832fdab64cd32055f59885cae918a92de63c361
+    container_name: rain-roads-mongodb
+    restart: unless-stopped
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: commute
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Run tools/setup.ps1 first}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  node-red:
+    build: .
+    image: rain-roads-commute:1.0.0
+    container_name: rain-roads-node-red
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:1881:1880"
+    environment:
+      TZ: Asia/Hong_Kong
+      MONGO_URI: mongodb://commute:${MONGO_PASSWORD}@mongodb:27017/rain_roads?authSource=admin
+      MONGO_DB: rain_roads
+      APP_DATA_DIR: /data/commute
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:?Run tools/setup.ps1 first}
+    volumes:
+      - node_data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:1880/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      start_period: 75s
+      interval: 30s
+      timeout: 20s
+      retries: 4
+volumes:
+  mongo_data:
+  node_data:

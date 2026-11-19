@@ -1,0 +1,683 @@
+[
+  {
+    "id": "collect",
+    "type": "tab",
+    "label": "1 · Automatic data collection",
+    "disabled": false,
+    "info": "Real DATA.GOV.HK streams. Trigger → core HTTP request → validate / transform / MongoDB upsert. Timers run on the Node-RED server even when no dashboard is open."
+  },
+  {
+    "id": "api",
+    "type": "tab",
+    "label": "2 · Dashboard API",
+    "disabled": false,
+    "info": "The static dashboard at / queries these HTTP endpoints. The editor is at /red/. The service in /opt/commute/lib provides tested validation, MongoDB storage, joins and descriptive statistics."
+  },
+  {
+    "id": "init",
+    "type": "inject",
+    "z": "collect",
+    "name": "Initialize / refresh locations · daily",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "86400",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 2,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 80,
+    "wires": [
+      [
+        "metadata"
+      ]
+    ]
+  },
+  {
+    "id": "metadata",
+    "type": "function",
+    "z": "collect",
+    "name": "Load official detector + camera metadata",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.init().then(()=>city.metadataRefresh()));node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 470,
+    "y": 80,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "timer-traffic",
+    "type": "inject",
+    "z": "collect",
+    "name": "traffic · every 2 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "120",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 10,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 180,
+    "wires": [
+      [
+        "url-traffic"
+      ]
+    ]
+  },
+  {
+    "id": "url-traffic",
+    "type": "function",
+    "z": "collect",
+    "name": "Set traffic source",
+    "func": "msg.sourceKind=\"traffic\";msg.url=\"https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml\";return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 180,
+    "wires": [
+      [
+        "http-traffic"
+      ]
+    ]
+  },
+  {
+    "id": "http-traffic",
+    "type": "http request",
+    "z": "collect",
+    "name": "Fetch traffic",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 650,
+    "y": 180,
+    "wires": [
+      [
+        "store-traffic"
+      ]
+    ]
+  },
+  {
+    "id": "store-traffic",
+    "type": "function",
+    "z": "collect",
+    "name": "Validate → normalize → MongoDB",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.ingest(\"traffic\",msg.payload,msg.statusCode));node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 930,
+    "y": 180,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "timer-rain",
+    "type": "inject",
+    "z": "collect",
+    "name": "rain · every 15 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "900",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 12,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 280,
+    "wires": [
+      [
+        "url-rain"
+      ]
+    ]
+  },
+  {
+    "id": "url-rain",
+    "type": "function",
+    "z": "collect",
+    "name": "Set rain source",
+    "func": "msg.sourceKind=\"rain\";msg.url=\"https://data.weather.gov.hk/weatherAPI/opendata/hourlyRainfall.php?lang=en\";return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 280,
+    "wires": [
+      [
+        "http-rain"
+      ]
+    ]
+  },
+  {
+    "id": "http-rain",
+    "type": "http request",
+    "z": "collect",
+    "name": "Fetch rain",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 650,
+    "y": 280,
+    "wires": [
+      [
+        "store-rain"
+      ]
+    ]
+  },
+  {
+    "id": "store-rain",
+    "type": "function",
+    "z": "collect",
+    "name": "Validate → normalize → MongoDB",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.ingest(\"rain\",msg.payload,msg.statusCode));node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 930,
+    "y": 280,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "timer-weather",
+    "type": "inject",
+    "z": "collect",
+    "name": "weather · every 10 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "600",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 14,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 380,
+    "wires": [
+      [
+        "url-weather"
+      ]
+    ]
+  },
+  {
+    "id": "url-weather",
+    "type": "function",
+    "z": "collect",
+    "name": "Set weather source",
+    "func": "msg.sourceKind=\"weather\";msg.url=\"https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en\";return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 380,
+    "wires": [
+      [
+        "http-weather"
+      ]
+    ]
+  },
+  {
+    "id": "http-weather",
+    "type": "http request",
+    "z": "collect",
+    "name": "Fetch weather",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 650,
+    "y": 380,
+    "wires": [
+      [
+        "store-weather"
+      ]
+    ]
+  },
+  {
+    "id": "store-weather",
+    "type": "function",
+    "z": "collect",
+    "name": "Validate → normalize → MongoDB",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.ingest(\"weather\",msg.payload,msg.statusCode));node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 930,
+    "y": 380,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "timer-camera",
+    "type": "inject",
+    "z": "collect",
+    "name": "Capture six cameras · every 2 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "120",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 20,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 480,
+    "wires": [
+      [
+        "camera"
+      ]
+    ]
+  },
+  {
+    "id": "camera",
+    "type": "function",
+    "z": "collect",
+    "name": "Download / persist actual JPEG frames",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.captureCameras());node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 480,
+    "y": 480,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "catch-collect",
+    "type": "catch",
+    "z": "collect",
+    "name": "Record source failure",
+    "scope": null,
+    "uncaught": false,
+    "x": 220,
+    "y": 580,
+    "wires": [
+      [
+        "error-state"
+      ]
+    ]
+  },
+  {
+    "id": "error-state",
+    "type": "function",
+    "z": "collect",
+    "name": "Mark feed unavailable; keep stored history",
+    "func": "const city=global.get('city');if(msg.sourceKind)city.fail(msg.sourceKind,msg.error?.message||'Request failed').catch(()=>{});msg.payload={source:msg.sourceKind||msg.error?.source?.name,error:msg.error?.message};return msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 580,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
+    "id": "log",
+    "type": "debug",
+    "z": "collect",
+    "name": "Acquisition status",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1220,
+    "y": 480,
+    "wires": []
+  },
+  {
+    "id": "in-Dashboard",
+    "type": "http in",
+    "z": "api",
+    "name": "GET /api/dashboard",
+    "url": "/api/dashboard",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 100,
+    "wires": [
+      [
+        "fn-Dashboard"
+      ]
+    ]
+  },
+  {
+    "id": "fn-Dashboard",
+    "type": "function",
+    "z": "api",
+    "name": "Dashboard",
+    "func": "const city=global.get('city');(async()=>{try{const value=await (city.snapshot(msg.req.query||{}));msg.statusCode=200;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload=value;}catch(e){msg.statusCode=400;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload={error:e.message};}node.send(msg);node.done();})();return;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 100,
+    "wires": [
+      [
+        "out-Dashboard"
+      ]
+    ]
+  },
+  {
+    "id": "out-Dashboard",
+    "type": "http response",
+    "z": "api",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 920,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "in-Historical replay",
+    "type": "http in",
+    "z": "api",
+    "name": "GET /api/replay",
+    "url": "/api/replay",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 200,
+    "wires": [
+      [
+        "fn-Historical replay"
+      ]
+    ]
+  },
+  {
+    "id": "fn-Historical replay",
+    "type": "function",
+    "z": "api",
+    "name": "Historical replay",
+    "func": "const city=global.get('city');(async()=>{try{const value=await (city.replay(msg.req.query.at,msg.req.query.district||''));msg.statusCode=200;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload=value;}catch(e){msg.statusCode=400;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload={error:e.message};}node.send(msg);node.done();})();return;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 200,
+    "wires": [
+      [
+        "out-Historical replay"
+      ]
+    ]
+  },
+  {
+    "id": "out-Historical replay",
+    "type": "http response",
+    "z": "api",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 920,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "in-Captured image",
+    "type": "http in",
+    "z": "api",
+    "name": "GET /api/camera/:id",
+    "url": "/api/camera/:id",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 300,
+    "wires": [
+      [
+        "fn-Captured image"
+      ]
+    ]
+  },
+  {
+    "id": "fn-Captured image",
+    "type": "function",
+    "z": "api",
+    "name": "Captured image",
+    "func": "const city=global.get('city');(async()=>{try{const value=await (city.camera(msg.req.params.id,msg.req.query.at));msg.statusCode=200;msg.headers={'Content-Type':'image/jpeg','Cache-Control':'no-store','X-Captured-At':value.ts};msg.payload=value.body;}catch(e){msg.statusCode=404;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload={error:e.message};}node.send(msg);node.done();})();return;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 300,
+    "wires": [
+      [
+        "out-Captured image"
+      ]
+    ]
+  },
+  {
+    "id": "out-Captured image",
+    "type": "http response",
+    "z": "api",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 920,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "in-Log a user decision",
+    "type": "http in",
+    "z": "api",
+    "name": "POST /api/decisions",
+    "url": "/api/decisions",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 400,
+    "wires": [
+      [
+        "fn-Log a user decision"
+      ]
+    ]
+  },
+  {
+    "id": "fn-Log a user decision",
+    "type": "function",
+    "z": "api",
+    "name": "Log a user decision",
+    "func": "const city=global.get('city');(async()=>{try{const value=await (city.decision(msg.payload||{}));msg.statusCode=200;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload=value;}catch(e){msg.statusCode=400;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload={error:e.message};}node.send(msg);node.done();})();return;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 400,
+    "wires": [
+      [
+        "out-Log a user decision"
+      ]
+    ]
+  },
+  {
+    "id": "out-Log a user decision",
+    "type": "http response",
+    "z": "api",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 920,
+    "y": 400,
+    "wires": []
+  },
+  {
+    "id": "in-Health",
+    "type": "http in",
+    "z": "api",
+    "name": "GET /api/health",
+    "url": "/api/health",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 220,
+    "y": 500,
+    "wires": [
+      [
+        "fn-Health"
+      ]
+    ]
+  },
+  {
+    "id": "fn-Health",
+    "type": "function",
+    "z": "api",
+    "name": "Health",
+    "func": "const city=global.get('city');(async()=>{try{const value=await (city.init().then(async()=>({ready:!!(await city.db.command({ping:1})).ok,service:'rain-roads'})));msg.statusCode=200;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload=value;}catch(e){msg.statusCode=400;msg.headers={'Content-Type':'application/json','Cache-Control':'no-store'};msg.payload={error:e.message};}node.send(msg);node.done();})();return;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 500,
+    "wires": [
+      [
+        "out-Health"
+      ]
+    ]
+  },
+  {
+    "id": "out-Health",
+    "type": "http response",
+    "z": "api",
+    "name": "",
+    "statusCode": "",
+    "headers": {},
+    "x": 920,
+    "y": 500,
+    "wires": []
+  }
+]
