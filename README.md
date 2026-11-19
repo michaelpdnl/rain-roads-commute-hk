@@ -5,7 +5,7 @@ COMP7503: a Node-RED application combining real Hong Kong road measurements, HKO
 ## Review and run this branch
 
 ```powershell
-git clone --branch codex/live-rain-roads https://github.com/michaelpdnl/rain-roads-commute-hk.git
+git clone --branch codex/complete-dashboard https://github.com/michaelpdnl/rain-roads-commute-hk.git
 cd rain-roads-commute-hk
 ```
 
@@ -42,6 +42,19 @@ docker compose start
 
 The collector runs while Docker and these containers are running, even if the browser is closed. Sleep, shutdown or network outages cause collection gaps. A public server is optional; Docker alone does not provide an always-on computer. Ports bind to this computer only, and MongoDB is not published to the host.
 
+### Upgrade an existing project container
+
+An existing Node-RED volume keeps its previous flow, even when the image is rebuilt. After pulling this branch, back up that flow, install the project's current flow and restart Node-RED:
+
+```powershell
+docker cp rain-roads-node-red:/data/flows.json ./flows-before-upgrade.json
+docker compose up -d --build
+docker cp flows.json rain-roads-node-red:/data/flows.json
+docker compose restart node-red
+```
+
+This updates the project's collection/API/maintenance flows. MongoDB records and camera files stay in their named volumes. Keep `flows-before-upgrade.json` locally if you edited the old flow.
+
 ## Include the collected history
 
 The separately shared assignment ZIP includes `history/`, an actual data snapshot and captured images. This folder is not part of the Git checkout. An image contains the program; volumes contain accumulated runtime data. Copy the shared `history/` folder into your checkout and restore it **after the first successful start**:
@@ -52,7 +65,7 @@ docker exec rain-roads-node-red node /opt/commute/tools/data.cjs restore /tmp/su
 docker compose restart node-red
 ```
 
-Restore upserts by record ID and does not delete other records. Refresh the dashboard. The supplied history ends at the export time; the collector then adds current observations. It cannot recover periods when nobody collected data, except the specific road XML files available from the official archive.
+Restore upserts by record ID and does not delete other records. Refresh the dashboard. The supplied history ends at the export time; the collector then adds current observations. Uncollected periods can only be filled where official archives supply the corresponding road XML or hourly weather reports. Archive sampling does not create continuous coverage or previously uncaptured camera images.
 
 To create your own history snapshot:
 
@@ -108,7 +121,7 @@ The global district filter applies to roads, analyses and camera selections. The
 - District rain is the **maximum reported within a district**, not a road-level sensor. The latest rain window ending no later than the road observation is joined by district only when at most 30 minutes old. Missing values are null, not zero. Rainfall windows overlap and repeated detector-periods are not independent samples.
 - The research model uses one detector/rain-window/hour mean, controls for available hour and weekday categories, and computes detector-cluster sandwich standard errors with approximate normal 95% intervals. Redundant control columns are removed explicitly. It requires wet and dry windows and sufficient detector clusters; a constant-rain sample is not fitted. Detectors sharing a rain report and overlapping time windows still create dependence not fully captured by these intervals. This is descriptive, not causal; the p-value is not a validated operational guarantee.
 - Free-flow reference is the detector's historical P85 from at least 12 nonzero valid observations. It is an empirical reference, not a speed limit or independently established uncongested speed. Road/season/date mix and unequal wet-date sampling can confound effects. Lag charts compare earlier hourly rain with later speed ratio; they cannot identify a precise minute of rainfall onset.
-- Research selects up to 120,000 archived detector/hour snapshots and 60,000 recent live detector/5-minute means within 90 days. Each mean uses only actual captured observations, not a continuously observed hour. Separate quotas preserve both rainy archives and current road conditions. Raw records remain stored. Scatters are reduced to about 1,200 rendering points; computation uses the selected sample. Replay selects the actual source timestamp represented by each stored bin.
+- Research selects up to 120,000 archived detector/hour snapshots and 60,000 recent live detector/5-minute means within 90 days. Each mean uses only actual captured observations, not a continuously observed hour. Separate quotas preserve both rainy archives and current road conditions. Raw records remain stored. Scatters are reduced to about 1,200 rendering points; computation uses the selected sample. Replay independently summarizes exact raw source frames within the same 90-day window, so its timeline and selected map contain identical observations. Control columns are fitted before rain: rainfall or interactions inseparable from those controls are reported as unavailable.
 - Network forecasts use ridge regression on then-available CI, prior change, occupancy, rainfall availability and hour. A frame is timestamped at its last source measurement, and rainfall must have been published or fetched by that time. The free-flow reference is fitted before the holdout cut; feature scaling is learned only from training pairs. Training target timestamps precede held-out input timestamps. Reported MAE compares predictions with measured +30/+60/+120-minute targets (up to five minutes late) and persistence. Horizons run from source observation time; source lag reduces the remaining time before a target. Negative skill is displayed honestly. Sparse intervals are not interpolated; results are limited research validation, not verified commuter guidance.
 - MongoDB persists in `mongo_data`; flows and JPEGs persist in `node_data`. Records retain source observation time and fetched time. Official archive imports retain requested time and resolved URL. Image timestamps record retrieval time; JPEG success does not imply the image is free of “No Service” text.
 

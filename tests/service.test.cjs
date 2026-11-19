@@ -69,6 +69,19 @@ test('Real MongoDB: ingestion deduplicates, rainfall joins, failure preserves da
   await assert.rejects(s.snapshot({district:'Unknown'}),/Unknown district/);
   await assert.rejects(s.snapshot({period:'invalid'}),/Unknown period/);
   const planner=await s.decision({actor:'planner',action:'flag-review',detectorId:'TEST1'});assert.equal(planner.actor,'planner');assert.equal(planner.action,'flag-review');
+  s.cache=null;const otherDistrict=await s.snapshot({district:'Yuen Long'});assert.equal(otherDistrict.loop.decisions,0);assert.equal(otherDistrict.decisions.length,0);
   await assert.rejects(s.decision({actor:'unknown',action:'observe',detectorId:'TEST1'}),/valid/);
  }finally{if(s.db&&/^rain_roads_test_[a-f0-9]{10}$/.test(name))await s.db.dropDatabase();await s.close();}
+});
+
+test('Replay timeline and map summarize the same exact raw observations, not detector-bin end times',{skip:process.env.INTEGRATION!=='1'},async()=>{
+ const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex'),s=new CityService({dbName:name,dataDir:'/tmp/'+name});
+ s.metadataRefresh=async()=>{s.metadata=[];s.cameras=[];};
+ try{await s.init();const day=new Date(Date.now()-86400000).toISOString().slice(0,10),rows=[];
+  for(let i=0;i<14;i++)for(let id=0;id<3;id++){const ts=day+`T${String(i).padStart(2,'0')}:00:00.000Z`;rows.push({_id:`${i}-${id}`,id:'D'+id,d:'Sha Tin',ts,speed:60,volume:5,occupancy:20,valid:true,hasVehicles:true,provenance:{archive:'fixture'}});}
+  for(const minute of [10,25])for(let id=0;id<3;id++){const ts=day+`T14:${minute}:00.000Z`;rows.push({_id:`last-${minute}-${id}`,id:'D'+id,d:'Sha Tin',ts,speed:minute===10?10+id*5:50-id*5,volume:5,occupancy:20,valid:true,hasVehicles:true,provenance:{archive:'fixture'}});}
+  await s.db.collection('traffic').insertMany(rows);const state=await s.snapshot();
+  assert.ok(state.frames.some(f=>f.ts===day+'T14:10:00.000Z'),'Every stored exact source frame must remain selectable');
+  for(const f of state.frames){const replay=await s.replay(f.ts);assert.equal(f.n,replay.detectors.length);assert.ok(Math.abs(f.ci-replay.ci)<1e-10,`${f.ts}: timeline/map CI mismatch`);}
+ }finally{if(s.db)await s.db.dropDatabase();await s.close();}
 });

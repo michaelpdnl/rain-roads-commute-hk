@@ -24,7 +24,7 @@ The official PDF asks for DATA.GOV.HK streams, Node-RED, Docker, analysis/correl
 
 ## Checks
 
-- Actual MongoDB test suite: **23 passed, 0 failed, 0 skipped**. Test databases are randomly named `rain_roads_test_*` and are removed after checks.
+- Actual MongoDB test suite: **25 passed, 0 failed, 0 skipped**. Test databases are randomly named `rain_roads_test_*` and are removed after checks.
 - Tests cover encodings, valid lanes, time zones, missing values, archived rain ranges/midnight, exact archive selection, deduplication, old rainy records, P85, controlled clustered regression, redundant controls, lag direction, forecast time isolation/gaps, real alert episode deduplication, roles, pending outcomes, stale images and legacy backups.
 - `tools/verify.cjs` verifies deployed flow equality, real statistics, six JPEGs, area filter, exact stored replay, invalid inputs, heatmap, loop counts, chronological forecast evaluation and current outlook timestamps.
 - Five pages use the original 1360×735 composition, scaled to the available viewport. Browser captures and final evidence are supplied separately in `report/`, not committed to Git.
