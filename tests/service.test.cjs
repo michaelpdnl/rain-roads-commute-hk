@@ -6,6 +6,19 @@ test('HTTP reader follows redirects and rejects bad status without losing TLS ch
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;
  try{assert.equal((await request(base+'/redirect')).body.toString(),'actual body');await assert.rejects(request(base+'/fail'),/HTTP 503/);}finally{await new Promise(r=>server.close(r));}
 });
+
+test('Historical RSS imports are deduplicated, keep unknown rain unknown, and do not replace live feed health',{skip:process.env.INTEGRATION!=='1'},async()=>{
+ const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex');const s=new CityService({dbName:name,dataDir:'/tmp/'+name});
+ s.metadataRefresh=async()=>{s.metadata=[];s.cameras=[];};
+ try{await s.init();assert.equal(typeof s.ingestHistorical,'function');
+  await s.health('weather',true,'',{observedAt:'2026-11-20T00:00:00.000Z'});
+  const xml='<rss><channel><item><pubDate>Fri, 02 Oct 2026 22:02:00 GMT</pubDate><description><![CDATA[Between 4:45 and 5:45 a.m., the rainfall recorded in various regions were:<table><tr><td>Sha Tin</td><td>1 to 7 mm.</td></tr></table>]]></description></item></channel></rss>';
+  const provenance={requestedTime:'20261003-0605',archive:'official-test-fixture'};
+  assert.equal((await s.ingestHistorical('weather-rss',xml,provenance)).inserted,1);assert.equal((await s.ingestHistorical('weather-rss',xml,provenance)).inserted,0);
+  assert.equal(await s.db.collection('district_rain').countDocuments(),1);assert.equal((await s.db.collection('district_rain').findOne({d:'Sha Tin'})).mm,7);
+  assert.equal((await s.db.collection('feed_health').findOne({_id:'weather'})).observedAt,'2026-11-20T00:00:00.000Z');
+ }finally{if(s.db)await s.db.dropDatabase();await s.close();}
+});
 test('Real MongoDB: ingestion deduplicates, rainfall joins, failure preserves data, decisions evaluate', {skip:process.env.INTEGRATION!=='1'},async()=>{
  const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex');
  const s=new CityService({dbName:name,dataDir:'/tmp/'+name});
