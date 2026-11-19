@@ -7,6 +7,16 @@ test('HTTP reader follows redirects and rejects bad status without losing TLS ch
  try{assert.equal((await request(base+'/redirect')).body.toString(),'actual body');await assert.rejects(request(base+'/fail'),/HTTP 503/);}finally{await new Promise(r=>server.close(r));}
 });
 
+test('Legacy backup restores without new optional collections but a missing traffic file is rejected',{skip:process.env.INTEGRATION!=='1'},async()=>{
+ const fs=require('node:fs/promises'),path=require('node:path'),{execFileSync}=require('node:child_process'),{MongoClient}=require('mongodb');
+ const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex'),folder='/tmp/'+name+'_backup',source=folder+'/source',target=folder+'/target';const c=new MongoClient(process.env.MONGO_URI);
+ try{await c.connect();await fs.mkdir(source+'/cameras',{recursive:true});const legacy=['detectors','camera_metadata','traffic','district_rain','station_rain','weather','feed_health','camera_frames','camera_status','decisions','imports'];
+  for(const n of legacy)await fs.writeFile(path.join(source,n+'.jsonl'),n==='traffic'?JSON.stringify({_id:'fixture-only',speed:42})+'\n':'');
+  const run=()=>execFileSync(process.execPath,['tools/data.cjs','restore',source],{env:{...process.env,MONGO_DB:name,APP_DATA_DIR:target},encoding:'utf8',stdio:['ignore','pipe','pipe']});run();run();assert.equal(await c.db(name).collection('traffic').countDocuments(),1);
+  await fs.unlink(source+'/traffic.jsonl');assert.throws(run,/Command failed/);
+ }finally{await c.db(name).dropDatabase();await c.close();if(folder.startsWith('/tmp/rain_roads_test_'))await fs.rm(folder,{recursive:true,force:true});}
+});
+
 test('Historical RSS imports are deduplicated, keep unknown rain unknown, and do not replace live feed health',{skip:process.env.INTEGRATION!=='1'},async()=>{
  const name='rain_roads_test_'+require('node:crypto').randomBytes(5).toString('hex');const s=new CityService({dbName:name,dataDir:'/tmp/'+name});
  s.metadataRefresh=async()=>{s.metadata=[];s.cameras=[];};
@@ -58,5 +68,7 @@ test('Real MongoDB: ingestion deduplicates, rainfall joins, failure preserves da
   assert.equal((await s.replay(snapshot.meta.latestTs)).detectors.length,1);await assert.rejects(s.replay('invalid'),/Invalid/);
   await assert.rejects(s.snapshot({district:'Unknown'}),/Unknown district/);
   await assert.rejects(s.snapshot({period:'invalid'}),/Unknown period/);
+  const planner=await s.decision({actor:'planner',action:'flag-review',detectorId:'TEST1'});assert.equal(planner.actor,'planner');assert.equal(planner.action,'flag-review');
+  await assert.rejects(s.decision({actor:'unknown',action:'observe',detectorId:'TEST1'}),/valid/);
  }finally{if(s.db&&/^rain_roads_test_[a-f0-9]{10}$/.test(name))await s.db.dropDatabase();await s.close();}
 });

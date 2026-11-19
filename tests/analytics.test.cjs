@@ -13,6 +13,11 @@ test('Controlled rain model recovers effect with detector-cluster intervals and 
  assert.equal(a.fitControlled(regressionRows().map(r=>({...r,rain:0}))),null);
 });
 
+test('A peak dummy redundant with hour controls does not suppress an estimable rain interaction',()=>{
+ const rows=[];for(let day=0;day<10;day++)for(const hour of [6,8])for(let id=0;id<6;id++){const rain=day%3===0?0:(day+id)%5+1;const peak=hour===8;const ts=new Date(Date.UTC(2026,9,5+day*7,hour-8)).toISOString();rows.push({id:'D'+id,d:'Sha Tin',ts,rainTs:ts,rain,ratio:.9-.02*rain-.02*rain*(+peak)+.01*(+peak)});}
+ const m=a.fitControlled(rows,{interaction:true});assert.ok(m?.interaction);assert.ok(Math.abs(m.interaction.off+.02)<1e-6);assert.ok(Math.abs(m.interaction.peak+.04)<1e-6);
+});
+
 test('Lag associations cannot consume rainfall measured after the shifted road time',()=>{
  const t=Date.parse('2026-10-03T00:00:00Z');const roads=Array.from({length:24},(_,i)=>({id:'D'+i,d:'Sha Tin',ts:new Date(t+i*60000).toISOString(),ratio:1-i/100}));
  const result=a.lagAssociations(roads,[{d:'Sha Tin',ts:new Date(t+600000).toISOString(),mm:5}]);
