@@ -62,6 +62,48 @@ docker exec rain-roads-node-red node /opt/commute/tools/backfill.cjs --research 
 
 Check actual successful traffic imports on all 40 dates, failures, unknown classifications and source coverage. Requesting 40 dates is not evidence that 40 dates were loaded. Sampled imports do not establish continuous live coverage or ten days of uptime. Hourly historical weather comes from actual English RSS archive versions where the JSON archive endpoint is unavailable; an unlisted district remains unknown. Before-capture historical camera frames remain unavailable. Optional isolated snapshots imported without `--research` do not satisfy the 40-day criterion.
 
+### Recover official history without a data package
+
+After pulling `codex/align-original-local`, run `docker compose up -d --build` so the image includes the new scripts. No local database export is needed. The default window is the previous 30 days, ending at command start. First inspect available archive listings (no database connection, observation downloads or file writes):
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/recover.cjs --days 30 --preview
+```
+
+To perform recovery on the machine/server running these containers:
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/recover.cjs --days 30
+```
+
+This additional maximum-available command leaves the original `backfill.cjs --research` sampling rule unchanged. It imports **every listed traffic and weather RSS version**, splitting truncated archive listings. It does not require daily rain classifications before recovering traffic. A month can involve tens of thousands of downloads, many GB and hours of work; preview prints request counts and a minimum request-time estimate, not duration/storage guarantees. Requests are limited to two starts per second with transient-error retries. Do not run multiple recovery processes concurrently. Live collection can continue.
+
+| Source | Recovery behavior |
+|---|---|
+| Traffic XML | All listed versions; study-district observations retain source timestamps; detector/time duplicates are removed. |
+| Current-weather RSS | Actual reports, observation-clock temperature/humidity and explicitly reported hourly district rain. Missing fields remain missing. RSS does not recreate all fields of the live weather JSON. |
+| HKO regional rainfall pages | Tries each nominal hourly page; uses its actual stated observation window (often ending at `:45`), retaining reported regions/ranges. An unbounded “currently no rainfall” statement is retained as text, without invented hourly zeros. |
+| HKO daily rainfall | Fetches each requested year's published CSV, preserving daily/trace/unknown values and reporting unpublished dates. Annual files refresh on rerun; daily values are not converted to hourly rain. |
+| Station rain JSON / weather JSON / six selected camera JPEGs | Probes official archive listings. The tested sources returned 404; no historical records/photos were recovered from them. Future available versions are attempted and validated, not guaranteed. |
+
+Imports are checkpointed for their **exact time window**; failures retry on rerun and existing observations are preserved. Copy the printed `resumeArguments` with frozen `--from`/`--to` timestamps to resume the same run. A new `--days` invocation has a newly sliding window. Example syntax (replace timestamps with printed values):
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/recover.cjs --from 2026-10-21T04:00:00.000Z --to 2026-11-20T04:00:00.000Z
+```
+
+Alternatively use `--start YYYYMMDD --end YYYYMMDD` for inclusive Hong Kong dates. Reports persist under `/data/commute/recovery/`: listed/candidate files, imported files, inserted records, checkpoint skips, dates with observations, dates without recovered observations, unavailable archives and errors are separate. Successful requests do not prove complete time coverage. Exit 2 indicates incomplete discovery, failed files, or no listed traffic; unavailable optional archives are reported separately. Preview does not validate observation-file content; `--report` is ignored in preview to preserve no-write behavior.
+
+Unarchived or deleted versions/photos cannot be reconstructed. Unknown publication times stay unknown and do not become earlier forecast availability times. Current metadata matches historical detector IDs; removed/renamed IDs may not match. Recovery cannot establish continuous uptime or supply missing fine-resolution rainfall for the original CCF method. Git contains code/instructions, not recovered records or credentials.
+
+Small real-source local verification creates/drops a separate `rain_roads_test_recovery_*` database and downloads only five sample files plus metadata/archive checks:
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/verify-recovery.cjs --real
+```
+
+The November 20 test imported/read back 868 traffic observations, one weather record with station temperatures/humidity, seven regional rain observations, 39 daily totals and three raw reports; rerunning inserted zero duplicates. These are sample counts, not a 30-day recovery. Temporary data/files were deleted.
+
 ### Export or restore a history snapshot
 
 Runtime records and camera files are separate from Git. A snapshot is dated evidence, not automatically the latest state. To export:
@@ -131,6 +173,6 @@ The assignment PDF requires DATA.GOV.HK streams, Node-RED programming, Docker/Mo
 
 After verification, capture all five current pages in `report/screenshots/` and replace `report/evidence.json`. `tools/report.py` rejects the earlier analysis shape and requires current runtime evidence; it builds PDF, editable Markdown and a provenance manifest. Supply real student names/IDs in optional `report/authors.json`; absent identities stay unfilled. No names or decisions are invented.
 
-`tools/package.ps1` includes both application Docker descriptions, `analysis/`, pinned Python/Node dependencies, flows, runtime source, original plan/mockup, current report/evidence and a supplied history snapshot. It checks report input/output hashes before packaging. The existing ZIP remains older until this succeeds with final current evidence. Local `.env` credentials are excluded. Report/history/verification artifacts are shared separately from Git; this work remains local with no commit or push.
+`tools/package.ps1` includes both application Docker descriptions, `analysis/`, pinned Python/Node dependencies, flows, runtime source, original plan/mockup, current report/evidence and a supplied history snapshot. It checks report input/output hashes before packaging. The existing ZIP remains older until this succeeds with final current evidence. Local `.env` credentials are excluded. Report/history/verification artifacts are shared separately from Git; the complete system and recovery code are delivered on `codex/align-original-local`.
 
 Current checks: 42 Node/Mongo/worker tests and 20 Python tests passed; all five pages were checked at 1360x735 without page scrolling. Full-history calculation retains every eligible raw observation; the worker is limited to 2.5 GiB with no container swap to protect the host. Initial full-history computation takes several minutes; subsequent dashboard requests use cached research results. See report/Project-Report.pdf and artifacts/original-runtime-verification.json for the captured results, not a claim of ten days of unattended operation.
