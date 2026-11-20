@@ -23,6 +23,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      analytics:
+        condition: service_healthy
     ports:
       - "127.0.0.1:1881:1880"
     environment:
@@ -30,6 +32,7 @@ services:
       MONGO_URI: mongodb://commute:${MONGO_PASSWORD}@mongodb:27017/rain_roads?authSource=admin
       MONGO_DB: rain_roads
       APP_DATA_DIR: /data/commute
+      ANALYTICS_URL: http://analytics:8000
       NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:?Run tools/setup.ps1 first}
     volumes:
       - node_data:/data
@@ -39,6 +42,29 @@ services:
       interval: 30s
       timeout: 20s
       retries: 4
+  analytics:
+    build:
+      context: .
+      dockerfile: Dockerfile.analytics
+    image: rain-roads-analytics:local
+    container_name: rain-roads-analytics
+    restart: unless-stopped
+    mem_limit: 2560m
+    memswap_limit: 2560m
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Hong_Kong
+      MONGO_URI: mongodb://commute:${MONGO_PASSWORD}@mongodb:27017/rain_roads?authSource=admin
+      MONGO_DB: rain_roads
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5)"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
 volumes:
   mongo_data:
   node_data:

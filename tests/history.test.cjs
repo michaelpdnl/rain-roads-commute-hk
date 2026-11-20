@@ -33,3 +33,11 @@ test('Archive selection uses listed versions, preserves wet-day detail, and reje
  assert.ok(selected.includes('20261003-0601'));assert.ok(selected.includes('20261003-0631'));assert.ok(!selected.includes('20261003-0606'));
  assert.ok(selected.every(t=>times.includes(t)));assert.throws(()=>history.dateRange('20261301','20261302'),/date/i);
 });
+test('Original backfill uses every 10-minute wet bin and every 60-minute dry bin',()=>{
+ const versions=['20261002-0001','20261002-0011','20261002-0021','20261002-0031','20261002-0041','20261002-0051','20261002-0101','20261003-0001','20261003-0011','20261003-0101'];
+ assert.deepEqual(history.selectTrafficVersions(versions,{wetDates:new Set(['20261002'])}),versions.filter(t=>t.startsWith('20261002')||['20261003-0001','20261003-0101'].includes(t)));
+});
+
+test('A date with no published daily rain cannot be silently classified as dry',()=>{
+ assert.deepEqual(history.selectTrafficVersions(['20261031-0001','20261101-0001'],{knownDates:new Set(['20261031'])}),['20261031-0001']);
+});

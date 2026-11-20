@@ -1,50 +1,36 @@
 # Rain, Roads and the Commute
 
-COMP7503: a Node-RED application combining real Hong Kong road measurements, HKO rainfall/weather and TD camera images. The dashboard reuses the teammate's layout, but obtains its measurements and statistics from MongoDB through Node-RED HTTP flows. The original static mockup remains in `mockup/`; it is not the running application.
+COMP7503A traffic and rainfall dashboard. `PLAN-v4.md` defines the analytical methods and acceptance criteria; `mockup/` is the five-page visual reference. The running interface is in `web/`, served by Node-RED. Mockup measurements and simulated findings are not application evidence.
 
-## Review and run this branch
-
-```powershell
-git clone --branch codex/complete-dashboard https://github.com/michaelpdnl/rain-roads-commute-hk.git
-cd rain-roads-commute-hk
-```
-
-Then follow the startup steps below. After this branch is merged, a normal clone of `main` uses the same commands. The working dashboard is already connected in `web/`; no additional manual integration with `mockup/` is needed. The teammate's existing prototype and plan are preserved in the repository.
-
-The source repository contains the runnable application, tests and tools. The report draft, recorded measurements, captured images and Moodle ZIP are separate deliverables and are intentionally excluded from Git. A fresh checkout can build and collect new data without those files. Use the separately shared history snapshot if you want the same existing records as the original computer.
+This version is shared on **`codex/align-original-local`**. Clone that complete branch to run it; merging into `main` is not a prerequisite. The original time/data acceptance criteria remain incomplete; see `ACCEPTANCE.md`. The previous pull request was withdrawn. Current report, screenshots, runtime evidence and database snapshots are local artifacts excluded from Git; cloning source does not transfer historical observations or camera files. A fresh installation starts collecting new data, and historical import/backfill is a separate operation described below. The earlier history snapshot and submission ZIP describe an older implementation and must not be submitted as this version. Do not clone the deleted `codex/complete-dashboard` branch.
 
 ## Start on Windows
 
-Install and start Docker Desktop with Linux containers. No separate Node.js, Node-RED or MongoDB installation is needed on the host.
-
-Open PowerShell **in this project directory** and run:
+Start Docker Desktop with Linux containers. Open PowerShell in this project directory:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/setup.ps1
 docker compose up -d --build
 ```
 
-Wait about 60–90 seconds for the first source requests, then open:
+Compose runs three internal services: Node-RED, MongoDB, and the Python analytics worker. Node-RED orchestrates collection, storage, maintenance and HTTP APIs; the worker performs the original statsmodels/sklearn analyses against raw MongoDB data. Only Node-RED publishes a host port. The worker and database stay on the private Compose network. Node-RED, MongoDB and Docker meet the assignment and the user's explicit deployment requirements; this overrides the original plan's older no-Docker/SQLite/FastAPI deployment assumption, without changing its statistical requirements.
 
-- Dashboard: <http://localhost:1881/>
-- Node-RED editor: <http://localhost:1881/red/>
-
-On Linux/macOS, copy `.env.example` to `.env` and replace both example values with independently generated hexadecimal strings before running the same `docker compose up -d --build` command. The PowerShell setup helper is only for generating those local values on Windows. Each host uses its own `.env`; do not copy or commit another host's credentials.
-
-The classroom example at port 1880 is a separate project. This dashboard has five pages, a map, actual camera images and computed charts; do not use the classroom `/ui` page for this project.
+Open the dashboard at [http://localhost:1881/](http://localhost:1881/) and the Node-RED editor at [http://localhost:1881/red/](http://localhost:1881/red/). The classroom example on port 1880 is a separate project. Initial source collection and raw-data analysis take time; inspect service health and logs rather than treating an old cached report as a successful new run.
 
 ```powershell
 docker compose ps
-docker compose logs --tail 40 node-red
+docker compose logs --tail 40 node-red analytics
 docker compose stop
 docker compose start
 ```
 
-The collector runs while Docker and these containers are running, even if the browser is closed. Sleep, shutdown or network outages cause collection gaps. A public server is optional; Docker alone does not provide an always-on computer. Ports bind to this computer only, and MongoDB is not published to the host.
+On Linux/macOS, copy `.env.example` to `.env` and replace both example values with independently generated hexadecimal strings before starting Compose. Each host uses its own credentials. The Windows helper generates these values; host installations of Node-RED, MongoDB and Python are not required for the container run.
 
-### Upgrade an existing project container
+The collector continues with the browser closed while the computer is awake, online and running its containers. Sleep, shutdown, network failure and source outages create gaps. Docker does not establish ten days of unattended operation by itself. `stop`, `start`, `restart`, and `down` without `-v` preserve named volumes. `docker compose down -v` deletes this project's stored volumes.
 
-An existing Node-RED volume keeps its previous flow, even when the image is rebuilt. After pulling this branch, back up that flow, install the project's current flow and restart Node-RED:
+### Upgrade an existing container
+
+The Node-RED data volume can retain an earlier deployed flow after an image rebuild. Back it up, install the current export, then restart:
 
 ```powershell
 docker cp rain-roads-node-red:/data/flows.json ./flows-before-upgrade.json
@@ -53,11 +39,39 @@ docker cp flows.json rain-roads-node-red:/data/flows.json
 docker compose restart node-red
 ```
 
-This updates the project's collection/API/maintenance flows. MongoDB records and camera files stay in their named volumes. Keep `flows-before-upgrade.json` locally if you edited the old flow.
+Keep the flow backup locally if it contains manual changes. Final verification must compare the deployed flow with `flows.json`.
 
-## Include the collected history
+## Sources, collection and history
 
-The separately shared assignment ZIP includes `history/`, an actual data snapshot and captured images. This folder is not part of the Git checkout. An image contains the program; volumes contain accumulated runtime data. Copy the shared `history/` folder into your checkout and restore it **after the first successful start**:
+| Data | DATA.GOV.HK catalog | Source / collection cadence |
+|---|---|---|
+| TD speed, volume, occupancy and locations | [Strategic / major roads](https://data.gov.hk/en-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads) | Road XML approximately each minute; poll 2 minutes; metadata daily |
+| HKO station rainfall | [Rainfall in the past hour](https://data.gov.hk/en-data/dataset/hk-hko-rss-rainfall-in-the-past-hour) | Poll 15 minutes; retain actual source resolution |
+| HKO district weather / rainfall | [Current weather report](https://data.gov.hk/en-data/dataset/hk-hko-rss-current-weather-report) | Hourly and when updated; poll 10 minutes |
+| TD camera metadata / JPEGs | [Traffic snapshot images](https://data.gov.hk/en-data/dataset/hk-td-tis_2-traffic-snapshot-images) | Capture six selected district views every 2 minutes |
+| Archived TD XML / HKO hourly RSS | Same road and current-weather catalogs | Import actual listed archive versions with provenance |
+| HKO daily rainfall | [Daily rainfall](https://data.gov.hk/en-data/dataset/hk-hko-rss-daily-total-rainfall) | Classify backfill dates only; never replace hourly observations |
+
+Study districts are Yuen Long, Sha Tin, Tsuen Wan, Kwun Tong, Sham Shui Po and Yau Tsim Mong. Actual catalog coverage determines detector counts. Traffic stores unique detector/source-time periods, district rain stores reported district maxima, and camera timestamps describe retrieval. Polling does not observe every intervening source period.
+
+The original backfill cadence is **10 minutes on known wet dates and 60 minutes on known dry dates**, with two archive downloads per second and resumable import records. Missing daily classification is unknown and skipped. Trace rainfall is wet. Daily totals only choose the sampling cadence; they do not become hourly rainfall. The current original-plan run requests 40 calendar dates, 22 September through 31 October 2026:
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/backfill.cjs --research --start 20260922 --end 20261031
+```
+
+Check actual successful traffic imports on all 40 dates, failures, unknown classifications and source coverage. Requesting 40 dates is not evidence that 40 dates were loaded. Sampled imports do not establish continuous live coverage or ten days of uptime. Hourly historical weather comes from actual English RSS archive versions where the JSON archive endpoint is unavailable; an unlisted district remains unknown. Before-capture historical camera frames remain unavailable. Optional isolated snapshots imported without `--research` do not satisfy the 40-day criterion.
+
+### Export or restore a history snapshot
+
+Runtime records and camera files are separate from Git. A snapshot is dated evidence, not automatically the latest state. To export:
+
+```powershell
+docker exec rain-roads-node-red node /opt/commute/tools/data.cjs export /data/commute/export
+docker cp rain-roads-node-red:/data/commute/export ./history-latest
+```
+
+To restore a separately supplied `history/` folder after a successful first start:
 
 ```powershell
 docker cp history rain-roads-node-red:/tmp/submitted-history
@@ -65,86 +79,58 @@ docker exec rain-roads-node-red node /opt/commute/tools/data.cjs restore /tmp/su
 docker compose restart node-red
 ```
 
-Restore upserts by record ID and does not delete other records. Refresh the dashboard. The supplied history ends at the export time; the collector then adds current observations. Uncollected periods can only be filled where official archives supply the corresponding road XML or hourly weather reports. Archive sampling does not create continuous coverage or previously uncaptured camera images.
+Restore upserts by record ID and preserves other records. Regenerate the snapshot manifest and restore verification after the current backfill before calling it a current submission. Earlier counts and restore checks do not verify this version.
 
-To create your own history snapshot:
+## Original analytical methods
 
-```powershell
-docker exec rain-roads-node-red node /opt/commute/tools/data.cjs export /data/commute/export
-docker cp rain-roads-node-red:/data/commute/export ./history-latest
-```
+`analysis/README.md` documents input fields, exact estimators, quality gates and reproduction commands. The Python worker reports unavailable methods with reasons; missing inputs do not authorize replacement statistics.
 
-Do not run `docker compose down -v` unless you intend to delete this project's stored history and flows. `stop`, `start`, `restart`, and `down` without `-v` preserve named volumes.
+- **Free flow and CI:** P85 uses eligible raw measured speed, including valid measured stops, separately for each detector and HKT hour. Each profile needs at least 12 actual observations and a positive P85. `CI = 1 - speed / P85` is not clamped: speeds above P85 yield negative CI. Zero-volume/no-vehicle periods do not become measured stops.
+- **Scope and joins:** original inference reads all eligible raw periods in the selected study districts within 90 days. There are no 120,000/60,000 archive/live quotas and no detector/hour averaging for OLS. Duplicate detector/time rows do not inflate n. District rain joins retrospectively at or before the road source time, at most 70 minutes old; unknown rain stays null. Forecast rain additionally needs publication/fetch availability by its origin.
+- **Rain sensitivity:** actual statsmodels OLS fits `speed_ratio ~ rain + C(hour) + C(weekday)`, with detector-cluster covariance, finite-sample correction and t(G-1) 95% intervals. Full nuisance-control spans are preserved. Insufficient wet/dry windows, too few clusters or confounding leave the model unavailable.
+- **Robustness and multiplicity:** actual ML MixedLM fits the same controls plus a detector random intercept and reports optimizer, convergence, covariance and warning diagnostics. Each estimable headline/district slope receives exactly 2,000 detector-block bootstrap draws with actual successful/failed counts. Benjamini-Hochberg adjusts the estimable district family. Detector-only clustered inference/FDR is unavailable with a single cluster; another SE estimator is not substituted.
+- **Peak interaction:** `speed_ratio ~ rain * peak + C(hour)`, with HKT weekday peaks 07:00-09:59 and 17:00-19:59. Both original rain slopes require independent variation.
+- **Onset lag:** `statsmodels.tsa.stattools.ccf` over -30 to +120 minutes requires real sufficiently fine rainfall observations and complete source panels. Current hourly rain cannot support it. The CCF panel remains unavailable; shifted Pearson correlations, interpolated rain and invented onset times are not alternatives.
+- **Forecasts:** Ridge versus persistence uses `TimeSeriesSplit(n_splits=3)` on a complete 5-minute clock with horizon purge gaps, unknown bins retained, and actual input/target pairs only. Every fold fits hourly P85 and `StandardScaler` from allowed training data. Horizons are 30/60/120 minutes; each needs three usable folds. Separately validated detector-specific 30-minute forecasts are the only forecast triggers for detector alerts. A source/bin-origin mismatch withholds an exact 30-minute detector prediction. No network forecast is relabeled as a detector forecast.
 
-## Source catalog and polling
+Scatter points may be reduced for rendering; this does not reduce the inference input. Effects are observational and can remain confounded by shared weather, repeated periods, season and uneven archive sampling. Negative forecast skill and failed robustness fits remain visible.
 
-| Data | Catalog | Source cadence / our timer | Use |
-|---|---|---|---|
-| TD speed, volume, occupancy + locations | [Strategic / major roads](https://data.gov.hk/en-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads) | XML approximately 1 minute / poll 2 minutes; metadata daily | Road map, ranking, speed/occupancy correlation, time comparisons |
-| HKO station rainfall | [Rainfall in the past hour](https://data.gov.hk/en-data/dataset/hk-hko-rss-rainfall-in-the-past-hour) | 15 minutes / poll 15 minutes | Stored station measurements and source-quality context |
-| HKO district weather / rainfall | [Current weather report](https://data.gov.hk/en-data/dataset/hk-hko-rss-current-weather-report) | Hourly and when updated / poll 10 minutes | District rainfall joined to road observations; temperature context |
-| TD camera metadata + JPEGs | [Traffic snapshot images](https://data.gov.hk/en-data/dataset/hk-td-tis_2-traffic-snapshot-images) | Images approximately 2 minutes / capture 2 minutes | Six actual camera views, persistent image files and timed replay |
-| Archived HKO hourly RSS + TD XML | Same current-weather and road catalogs above | Actual archive versions | Historical wet-weather pairs, baselines and research |
-| HKO daily rainfall | [Daily rainfall](https://data.gov.hk/en-data/dataset/hk-hko-rss-daily-total-rainfall) | Monthly publication of daily totals | Select dates for denser archive sampling; never substituted for hourly rain |
+## Five pages and the measured feedback loop
 
-Study districts: Kwun Tong, Yau Tsim Mong, Sha Tin, Yuen Long, Tsuen Wan and Sham Shui Po. Every department endpoint is linked from a DATA.GOV.HK catalog entry. Current catalog metadata determines actual detector and camera counts; no fixed old count is assumed.
+The visual target is the original five-page 1360x735 mockup with zero page scroll. New captures and automated viewport checks are required for the current runtime.
 
-Optional, verified road-history import (seven selected official files, not continuous days):
+| Page | Original behavior / evidence |
+|---|---|
+| Live | Hourly-P85 CI, ranking, actual rain/camera captures; district/hour P90 rain alerts and eligible detector 30-minute threshold-crossing alerts |
+| Impact | Raw rain/speed-ratio pairs, original controlled district slopes/intervals, MixedLM/bootstrap/FDR diagnostics, peak interaction, and unavailable CCF with its source-resolution reason |
+| Replay | Actual timestamps, exact-frame CI, events/playback; gaps remain gaps; only a qualifying prior camera capture appears |
+| Loop | Associated alert/decision episodes; original role actions; actual CI remeasurement at +30 and +60 minutes; baseline/forecast deltas, hit/false-alarm denominators and observed lead time |
+| Trust | Freshness, validity/gaps, forecast calibration, provenance, and explicitly unavailable camera image-content No Service metric |
 
-```powershell
-docker exec rain-roads-node-red node /opt/commute/tools/backfill.cjs
-```
+Alert rule: observed `CI > P90(district, HKT hour)` with positive observed rain, or a matching validated detector 30-minute forecast crossing that threshold. An alert expires or is linked to a timestamped decision. Original actions are commuter leave-now/delay20/switch-rail, operator acknowledge/dispatch-simulated, and planner flag-review. Actors are simulated stand-ins; source observations are actual. No physical dispatch or causal travel improvement is asserted.
 
-The HKO JSON archives are unavailable for the checked endpoints, but the same catalog's English **RSS** has hourly historical versions. To acquire the verified October research period:
+Decision outcomes compare same-detector/road CI at +30 and +60 minutes, using actual source observations in target through target+10-minute windows. Missing closed windows are censored; open windows remain pending. Initial CI, persistence baseline and an available detector forecast are frozen; missing forecasts remain null. A decision is evaluated only with actual evidence at both horizons. False alarms need eligible actual observations; unobserved intervals cannot establish no congestion. Weekly model-refit scheduling also requires runtime evidence.
 
-```powershell
-docker exec rain-roads-node-red node /opt/commute/tools/backfill.cjs --research --start 20261001 --end 20261031
-```
+The original Trust **image-content No Service** rate needs validated labels and a validated detector. It remains pending; HTTP/JPEG download success is separate source health and does not complete that panel. The optional camera congestion proxy cannot be claimed without its 100 labelled-frame calibration.
 
-The importer lists actual archive timestamps, samples TD every half hour on dates with HKO daily rain and six slots on other dates, and imports hourly RSS versions. It limits archive downloads to two per second and skips successful imports on rerun. This takes several minutes and needs a network connection. The verified run imported 1,139 files with no failures. An unlisted RSS district remains **unknown**, not zero; daily totals do not supply hourly measurements. Archive source time and download provenance remain stored. Sampling is intentionally denser on wet dates and is not a random sample of all Hong Kong traffic.
+## Verification and original acceptance
 
-## What each page does
+No older test total, screenshot, archive-file count or report proves the current runtime. `ACCEPTANCE.md` records the original requirements and evidence still needed. The original **10 days unattended / 95% feed uptime**, **40 dates backfilled**, **two quantified findings plus an honest negative result**, and **20 alert-associated decisions with actual outcomes** remain required. Missing elapsed time or source data is pending acceptance, not an implemented substitute.
 
-1. **Live:** measured congestion index (`CI = clamp(1 - speed / historical P85, 0, 1)`), corridor ranking, rain, actual camera captures, observed alerts and a network CI outlook.
-2. **Impact:** speed-ratio/rain scatter; district sensitivity with approximate 95% detector-cluster intervals; lagged associations; controlled rain×peak interaction; actual model terms, counts and limits. Unestimable selections are identified explicitly.
-3. **Replay:** actual stored source timestamps, CI/rain timeline, observed rain/congestion/gap events, playback rates and exact road frames. Images appear only when a capture exists within the preceding three minutes. Missing history is never interpolated.
-4. **Loop:** persisted alert episodes, actual decision/outcome funnel, chronological forecast errors against persistence, and a real choice log for commuter/operator/planner roles. Outcomes compare road speed at +30 minutes (within 10 minutes). Choices do not send dispatch instructions or establish causal travel benefits.
-5. **Trust:** source timing/failures; a seven-day, 24-hour validity heatmap with unknown cells; measured JPEG retrieval availability; 30/60/120-minute forecast MAE; provenance and storage scope.
-
-The global district filter applies to roads, analyses and camera selections. The six rainfall cards remain regional context. The dashboard refreshes every 30 seconds; collection timers run in Node-RED independently.
-
-## Methods and storage
-
-- Node-RED collection tab: timer → source URL → core HTTP Request node → JavaScript validation / transformation → MongoDB upsert. Camera downloads and metadata use the shared Node.js service called by Node-RED function nodes. The second tab implements dashboard, replay, image and decision HTTP APIs.
-- `lib/core.cjs` contains tested parsing, joins and descriptive statistics. `lib/service.cjs` supplies MongoDB access and acquisition helpers, loaded through `functionGlobalContext` in `settings.js`. This is not a separate Python/FastAPI backend.
-- Traffic documents use `(detector ID, source observation time)` as a unique ID. Only valid lanes with plausible speed/volume contribute. Speed is vehicle-volume weighted across valid lanes. Periods with no observed vehicles are excluded from speed analyses; stopped vehicles with nonzero volume remain valid.
-- District rain is the **maximum reported within a district**, not a road-level sensor. The latest rain window ending no later than the road observation is joined by district only when at most 30 minutes old. Missing values are null, not zero. Rainfall windows overlap and repeated detector-periods are not independent samples.
-- The research model uses one detector/rain-window/hour mean, controls for available hour and weekday categories, and computes detector-cluster sandwich standard errors with approximate normal 95% intervals. Redundant control columns are removed explicitly. It requires wet and dry windows and sufficient detector clusters; a constant-rain sample is not fitted. Detectors sharing a rain report and overlapping time windows still create dependence not fully captured by these intervals. This is descriptive, not causal; the p-value is not a validated operational guarantee.
-- Free-flow reference is the detector's historical P85 from at least 12 nonzero valid observations. It is an empirical reference, not a speed limit or independently established uncongested speed. Road/season/date mix and unequal wet-date sampling can confound effects. Lag charts compare earlier hourly rain with later speed ratio; they cannot identify a precise minute of rainfall onset.
-- Research selects up to 120,000 archived detector/hour snapshots and 60,000 recent live detector/5-minute means within 90 days. Each mean uses only actual captured observations, not a continuously observed hour. Separate quotas preserve both rainy archives and current road conditions. Raw records remain stored. Scatters are reduced to about 1,200 rendering points; computation uses the selected sample. Replay independently summarizes exact raw source frames within the same 90-day window, so its timeline and selected map contain identical observations. Control columns are fitted before rain: rainfall or interactions inseparable from those controls are reported as unavailable.
-- Network forecasts use ridge regression on then-available CI, prior change, occupancy, rainfall availability and hour. A frame is timestamped at its last source measurement, and rainfall must have been published or fetched by that time. The free-flow reference is fitted before the holdout cut; feature scaling is learned only from training pairs. Training target timestamps precede held-out input timestamps. Reported MAE compares predictions with measured +30/+60/+120-minute targets (up to five minutes late) and persistence. Horizons run from source observation time; source lag reduces the remaining time before a target. Negative skill is displayed honestly. Sparse intervals are not interpolated; results are limited research validation, not verified commuter guidance.
-- MongoDB persists in `mongo_data`; flows and JPEGs persist in `node_data`. Records retain source observation time and fetched time. Official archive imports retain requested time and resolved URL. Image timestamps record retrieval time; JPEG success does not imply the image is free of “No Service” text.
-
-The original demo's “No Service” **image-content** percentage has no validated labelled image set here, so it is not claimed as implemented. Trust reports actual HTTP/JPEG attempts instead. Historical pictures from before capture began cannot be recovered by inventing frames. Decision counts remain zero until people actually log choices; dispatching real vehicles and measured queue length are not supplied by these sources.
-
-## Reproducibility and tests
-
-The Dockerfile pins Node-RED and MongoDB base images by digest; `package-lock.json` pins the MongoDB driver and XML parser. `flows.json` is the exported runnable flow, generated by `tools/build-flows.cjs`.
-
-With host Node.js, run `npm ci` and `npm test` for the pure tests. To include the real-MongoDB integration test without installing host dependencies:
+With host Node.js, `npm ci` then `npm test` runs the Node pure tests. The analytics image supplies pinned Python dependencies:
 
 ```powershell
-docker exec rain-roads-node-red mkdir -p /opt/commute/tests
-docker cp tests/. rain-roads-node-red:/opt/commute/tests/
-docker exec -e INTEGRATION=1 -w /opt/commute rain-roads-node-red node --test tests/core.test.cjs tests/history.test.cjs tests/analytics.test.cjs tests/service.test.cjs
+docker exec -w /app rain-roads-analytics python -m unittest discover -s analysis/tests -v
 ```
 
-The integration test uses a randomly named `rain_roads_test_*` database and deletes only that test database. Fixture records never enter the production dashboard. Tests cover CSV encodings, invalid lanes, timestamps, missing values, bounded non-future joins, constant rainfall, deduplication, failed-source preservation, decision validation and observed outcome evaluation.
+See `analysis/README.md` for the JSON/Mongo CLI reproducing original n, R-squared, estimator/2,000-bootstrap intervals and diagnostics. Real-Mongo integration and runtime/browser checks must use current built services and save fresh results. Fixtures are isolated test inputs; fixture output never becomes a dashboard finding. Final machine evidence is `artifacts/original-runtime-verification.json`; `report/evidence.json` is the corresponding API response. Test summaries are in `artifacts/original-test-results.json` when generated.
 
-## Submission files
+## Report and submission
 
-The teacher's PDF asks for one ZIP containing the exported Node-RED flow, a Docker Hub ID **or Docker description file**, and a report. The prepared assignment ZIP supplies `flows.json`, `Dockerfile` + `compose.yaml` + reproducible source, `report/Project-Report.pdf`, and the optional history snapshot. The report/history are shared separately from Git. `tools/report.py` and `tools/package.ps1` require those local report inputs and history files; they are not needed to start the application. A Docker Hub push and cloud server are not required by the PDF. `ACCEPTANCE.md` maps the assignment to the implementation and records checks.
+The assignment PDF requires DATA.GOV.HK streams, Node-RED programming, Docker/MongoDB storage, analysis/correlation, a dashboard and a report explaining use cases and implementation. Moodle receives one ZIP containing the flow, a Docker Hub ID **or Docker description file**, and report. Cloud hosting is not required; the original plan's additional acceptance criteria above still apply.
 
-`PLAN-v4.md` and `mockup/` remain the teammate's original proposal and prototype. Their simulated measurements, forecast scores and invented decision log are not used. The five panel groups now use measured history and computed analyses, with remaining evidence limits stated above. The desktop composition is 1360×735 and scales to the available viewport.
+After verification, capture all five current pages in `report/screenshots/` and replace `report/evidence.json`. `tools/report.py` rejects the earlier analysis shape and requires current runtime evidence; it builds PDF, editable Markdown and a provenance manifest. Supply real student names/IDs in optional `report/authors.json`; absent identities stay unfilled. No names or decisions are invented.
 
-Before Moodle submission, enter both students' names/IDs in the report source and regenerate the PDF, and review the project together. Credentials in `.env` are local and excluded from the ZIP.
+`tools/package.ps1` includes both application Docker descriptions, `analysis/`, pinned Python/Node dependencies, flows, runtime source, original plan/mockup, current report/evidence and a supplied history snapshot. It checks report input/output hashes before packaging. The existing ZIP remains older until this succeeds with final current evidence. Local `.env` credentials are excluded. Report/history/verification artifacts are shared separately from Git; this work remains local with no commit or push.
+
+Current checks: 42 Node/Mongo/worker tests and 20 Python tests passed; all five pages were checked at 1360x735 without page scrolling. Full-history calculation retains every eligible raw observation; the worker is limited to 2.5 GiB with no container swap to protect the host. Initial full-history computation takes several minutes; subsequent dashboard requests use cached research results. See report/Project-Report.pdf and artifacts/original-runtime-verification.json for the captured results, not a claim of ten days of unattended operation.

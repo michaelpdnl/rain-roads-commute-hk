@@ -440,6 +440,55 @@
     ]
   },
   {
+    "id": "timer-refit",
+    "type": "inject",
+    "z": "collect",
+    "name": "Refit original models · weekly",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "604800",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 90,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 780,
+    "wires": [
+      [
+        "refit"
+      ]
+    ]
+  },
+  {
+    "id": "refit",
+    "type": "function",
+    "z": "collect",
+    "name": "Original model refit / checkpoint",
+    "func": "const city=global.get('city');\n(async()=>{try{msg.payload=await (city.refitModels());node.status({fill:'green',shape:'dot',text:new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Hong_Kong'})});node.send(msg);}catch(e){node.status({fill:'red',shape:'ring',text:e.message.slice(0,60)});node.error(e.message,msg);}finally{node.done();}})();\nreturn;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 780,
+    "wires": [
+      [
+        "log"
+      ]
+    ]
+  },
+  {
     "id": "catch-collect",
     "type": "catch",
     "z": "collect",

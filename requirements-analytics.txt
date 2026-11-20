@@ -1,0 +1,11 @@
+# Actual installed/import-verified versions; not the unverified future pins in PLAN-v4.
+numpy==2.3.5
+pandas==2.3.3
+scipy==1.16.3
+statsmodels==0.14.5
+patsy==1.0.1
+scikit-learn==1.7.2
+fastapi==0.136.1
+uvicorn==0.42.0
+pymongo==4.20.1
+httpx==0.28.1
